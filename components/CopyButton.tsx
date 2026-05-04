@@ -12,7 +12,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
   }
 
   return (
-    <button type="button" onClick={onCopy} className="rounded border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">
+    <button type="button" onClick={onCopy} className="rounded border border-[#E5E3DC] bg-[#FFFFFF] px-3 py-1.5 text-sm hover:bg-[#E5E3DC]">
       {copied ? 'Copied' : label}
     </button>
   );

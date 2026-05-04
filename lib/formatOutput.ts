@@ -14,7 +14,7 @@ export function formatOutputAsPlainText(output: StrategicMessagingOutput): strin
     'What Changed and Why',
     ...output.whatChangedAndWhy.map((item) => `- ${item}`),
     '',
-    'Intent Preservation Check',
+    'Intent Preserved',
     output.intentPreservationCheck,
     '',
     'Terms to Reconsider',
