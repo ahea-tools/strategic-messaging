@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-white: #ffffff;
+  --color-off-white: #e5e3dc;
+  --color-terracotta: #d4967d;
+  --color-green-gray: #495a58;
+  --color-ink: #303636;
+}
+
+body {
+  background: var(--color-off-white);
+  color: var(--color-ink);
+  font-family: var(--font-pt-serif), serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-marcellus), serif;
+  color: var(--color-ink);
+}
