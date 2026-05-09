@@ -1,18 +1,34 @@
-# AHEA Strategic Messaging Tool
+# AHEA Strategic Messaging Tool (Frontend)
 
-Focused, cost-efficient strategic rewrite support for American Health Equity Association members.
+This repository is the **frontend-only** Strategic Messaging Tool for AHEA.
 
-## Stack
-- Next.js App Router + TypeScript + Tailwind CSS
-- Server-side OpenAI Responses API with Structured Outputs
-- No database, no user accounts, no saved history, no analytics in v1
+## Architecture
+- Next.js App Router + TypeScript + Tailwind CSS frontend.
+- Shared backend: `https://api.americanhealthequity.org`.
+- Backend handles authentication/session, usage tracking, rate limiting, paywall decisions, OpenAI calls, and generation logging.
+
+## Backend endpoints used
+- `GET /api/me` for auth, access state, and usage/paywall status.
+- `POST /api/generate` for strategic messaging generation requests.
+
+Every generation request sends:
+- `toolId: "strategic-messaging"`
+- `input` payload for message/audience/mode/context/follow-up.
+
+## Environment variables
+Required:
+- `NEXT_PUBLIC_AHEA_BACKEND_URL=https://api.americanhealthequity.org`
+
+Remove old frontend env vars from Vercel for this repo:
+- `OPENAI_API_KEY`
+- `APP_ACCESS_CODE`
 
 ## Local setup
 1. Install dependencies:
    ```bash
    npm install
    ```
-2. Create `.env.local` from `.env.example` and add values.
+2. Create `.env.local` from `.env.example`.
 3. Run locally:
    ```bash
    npm run dev
@@ -22,34 +38,11 @@ Focused, cost-efficient strategic rewrite support for American Health Equity Ass
    npm run build
    ```
 
-## Environment variables
-- `OPENAI_API_KEY` (required)
-- `APP_ACCESS_CODE` (optional lightweight gate)
+## Access and complimentary usage
+- Verified users receive **2 complimentary generations total across all AHEA tools** (enforced by shared backend).
+- Squarespace can link/embed this app, but Squarespace itself does **not** directly decide AI generation access.
 
-Reminder: add `OPENAI_API_KEY` in Vercel Project Settings → Environment Variables.
-
-## Deployment notes (Vercel)
-- This app is Vercel-ready and does not require a database or background worker.
-- Intended to be embedded (iframe) or linked from a Squarespace members-only page.
-- Important: Squarespace paywalling protects the Squarespace page, not necessarily direct access to the Vercel URL.
-
-## Optional APP_ACCESS_CODE behavior
-- If set, users must enter a matching access code before using the tool.
-- Stored only in browser `sessionStorage`.
-- This is a lightweight gate for v1 and **not** true authentication.
-
-## Cost-control notes
-- Message input capped at 3,000 characters.
-- One API call per Generate click.
-- One API call per follow-up click.
-- Concise schema and concise default output.
-- Central config for model, temperature, character limit, and token limit.
-
-## Privacy and disclaimer
+## Notes
+- This app preserves current UI/UX and embedding support.
 - Do not enter confidential patient information or protected health information (PHI).
-- This tool provides communication support and does not provide legal, compliance, or policy advice.
-
-## Sample test inputs
-1. “Our health equity initiative is designed to address systemic barriers and reduce disparities among marginalized communities by centering community voice in program design.”
-2. “We are centering lived experience and prioritizing historically excluded residents to guide our outreach and resource allocation strategy.”
-3. “This program provides targeted outreach to vulnerable populations experiencing social determinants of health that limit equitable access to care.”
+- This tool provides communication support and not legal/compliance/policy advice.
