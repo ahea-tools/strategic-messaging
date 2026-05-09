@@ -32,8 +32,8 @@ export function StrategicMessagingForm() {
 
   const plainText = useMemo(() => (output ? formatOutputAsPlainText(output) : ''), [output]);
   const tooLong = message.length > APP_CONFIG.maxMessageChars;
-  const blocked = Boolean(account?.access?.blocked || account?.paywall?.blocked || account?.access?.allowed === false);
-  const blockedMessage = account?.paywall?.message || account?.access?.message || account?.access?.reason;
+  const blocked = Boolean(account?.blocked || account?.paywall?.show);
+  const showAuthNotice = account?.paywall?.show && account?.paywall?.variant === 'auth';
 
   async function generate(followUpAction?: string) {
     if (!message.trim()) return setError('Message is required.');
@@ -41,7 +41,7 @@ export function StrategicMessagingForm() {
     setError(''); setLoading(true);
     try {
       const data = await generateStrategicMessaging({ message, audience, mode, goalContext, followUpAction, currentOutput: output });
-      if (data.usage || data.paywall) setAccount((prev) => ({ ...(prev || {}), usage: data.usage || prev?.usage, paywall: data.paywall || prev?.paywall }));
+      if (data.usage || data.paywall) setAccount((prev) => ({ ...(prev || { status: 'success' }), usage: data.usage || prev?.usage, paywall: data.paywall || prev?.paywall, blocked: Boolean(data.paywall?.show || data.blocked) }));
       if (data.blocked || !data.output) throw new Error(data.error || data.message || 'Unable to generate a strategic rewrite right now.');
       setOutput(data.output);
     } catch (e) { setError(e instanceof Error ? e.message : 'Unexpected error'); }
@@ -51,9 +51,9 @@ export function StrategicMessagingForm() {
   return <div className="grid gap-6 lg:grid-cols-2"><div className="space-y-4 rounded border border-[#E5E3DC] bg-[#FFFFFF] p-6">
   {statusLoading ? <p className="text-sm text-[#495A58]">Loading access and usage status…</p> : (
     <div className="rounded border border-[#E5E3DC] bg-[#FAF9F6] p-3 text-sm text-[#495A58]">
-      <p>{account?.message || 'Signed-in status is managed by the AHEA shared backend.'}</p>
-      {account?.usage && <p className="mt-1">Complimentary generations remaining: {String(account.usage.complimentaryRemaining ?? '—')} of {String(account.usage.complimentaryTotal ?? account.usage.limit ?? '—')}.</p>}
-      {blocked && <p className="mt-1 text-[#7C3F30]">{blockedMessage || 'Generation is currently unavailable for this account.'}</p>}
+      {showAuthNotice ? <p>Please sign in or verify your email to use AHEA tools. Verified users receive two complimentary generations total across AHEA tools.</p> : <p>{account?.message || 'Signed-in status is managed by the AHEA shared backend.'}</p>}
+      {account?.usage && <p className="mt-1">Generations used: {String(account.usage.generationsUsed ?? '—')} • Free limit: {String(account.usage.freeGenerationsLimit ?? '—')} • Remaining free generations: {String(account.usage.remainingFreeGenerations ?? '—')} • Access status: {String(account.usage.accessStatus ?? '—')}.</p>}
+      {account?.paywall?.show && account.paywall.ctaLabel && account.paywall.ctaUrl && <a className="mt-2 inline-block rounded border border-[#E5E3DC] bg-[#FFFFFF] px-3 py-1.5 text-sm" href={account.paywall.ctaUrl} target="_blank" rel="noreferrer">{account.paywall.ctaLabel}</a>}
     </div>
   )}
   <label className="block text-sm font-medium">Paste your message</label><textarea value={message} onChange={(e)=>setMessage(e.target.value)} placeholder="Paste a paragraph, email, talking points, public statement, program description, or draft language." className="h-52 w-full rounded border border-[#E5E3DC] bg-[#FFFFFF] p-3" />

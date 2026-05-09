@@ -6,29 +6,34 @@ export function getBackendBaseUrl() {
   return process.env.NEXT_PUBLIC_AHEA_BACKEND_URL || DEFAULT_BACKEND_URL;
 }
 
-export interface MeResponse {
-  authenticated?: boolean;
-  access?: {
-    allowed?: boolean;
-    blocked?: boolean;
-    reason?: string;
-    message?: string;
-  };
+export interface MeApiResponse {
+  status?: 'success' | 'error';
+  user?: { email: string | null; emailVerified: boolean };
   usage?: {
-    complimentaryRemaining?: number;
-    complimentaryTotal?: number;
-    used?: number;
-    limit?: number;
-    [key: string]: unknown;
+    generationsUsed?: number;
+    freeGenerationsLimit?: number;
+    remainingFreeGenerations?: number;
+    accessStatus?: string;
+  };
+  membership?: {
+    hasActiveMembership?: boolean;
+    membershipStatus?: string;
+    billingInterval?: string;
+    currentPeriodEnd?: string | null;
   };
   paywall?: {
-    blocked?: boolean;
-    message?: string;
+    show?: boolean;
+    variant?: string;
     ctaLabel?: string;
     ctaUrl?: string;
+    message?: string;
   };
   message?: string;
-  [key: string]: unknown;
+  error?: string;
+}
+
+export interface MeResponse extends MeApiResponse {
+  blocked: boolean;
 }
 
 export interface GenerateResponse {
@@ -36,9 +41,18 @@ export interface GenerateResponse {
   blocked?: boolean;
   message?: string;
   error?: string;
-  usage?: MeResponse['usage'];
-  paywall?: MeResponse['paywall'];
+  usage?: MeApiResponse['usage'];
+  paywall?: MeApiResponse['paywall'];
   [key: string]: unknown;
+}
+
+function normalizeMe(data: MeApiResponse): MeResponse {
+  const paywallShow = Boolean(data.paywall?.show);
+  const blockedByUsage = data.usage?.accessStatus ? !['free', 'member', 'active', 'allowed'].includes(data.usage.accessStatus) : false;
+  return {
+    ...data,
+    blocked: paywallShow || blockedByUsage,
+  };
 }
 
 export async function fetchMe(): Promise<MeResponse> {
@@ -47,9 +61,14 @@ export async function fetchMe(): Promise<MeResponse> {
     credentials: 'include',
     cache: 'no-store',
   });
-  const data = (await res.json().catch(() => ({}))) as MeResponse;
-  if (!res.ok) throw new Error(data.message || 'Unable to load account status.');
-  return data;
+  const data = (await res.json().catch(() => ({}))) as MeApiResponse;
+
+  if (data.status === 'success') return normalizeMe(data);
+  if (!res.ok || data.status === 'error') {
+    throw new Error(data.message || data.error || 'Unable to load account status.');
+  }
+
+  return normalizeMe(data);
 }
 
 export async function generateStrategicMessaging(input: {
@@ -65,13 +84,11 @@ export async function generateStrategicMessaging(input: {
     credentials: 'include',
     cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      toolId: 'strategic-messaging',
-      input,
-    }),
+    body: JSON.stringify({ toolId: 'strategic-messaging', input }),
   });
 
   const data = (await res.json().catch(() => ({}))) as GenerateResponse;
-  if (!res.ok) return { ...data, blocked: true, error: data.error || data.message || 'Generation failed.' };
+  const blocked = Boolean(data.blocked || data.paywall?.show || (!data.output && !res.ok));
+  if (!res.ok || blocked) return { ...data, blocked: true, error: data.error || data.message || 'Generation failed.' };
   return data;
 }
