@@ -1,7 +1,4 @@
 export const APP_CONFIG = {
-  model: 'gpt-5.4-mini', // For lower cost later, switch to 'gpt-5.4-nano'.
-  maxOutputTokens: 900,
-  temperature: 0.4,
   maxMessageChars: 3000,
 } as const;
 
