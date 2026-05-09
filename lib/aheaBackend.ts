@@ -28,6 +28,19 @@ export interface MeApiResponse {
     ctaUrl?: string;
     message?: string;
   };
+  auth?: {
+    required?: boolean;
+    startEndpoint?: string;
+    verifyEndpoint?: string;
+    callbackEndpoint?: string;
+    returnField?: 'returnTo' | 'return_to';
+  };
+  message?: string;
+  error?: string;
+}
+
+export interface StartAuthResponse {
+  status?: 'success' | 'error';
   message?: string;
   error?: string;
 }
@@ -90,5 +103,35 @@ export async function generateStrategicMessaging(input: {
   const data = (await res.json().catch(() => ({}))) as GenerateResponse;
   const blocked = Boolean(data.blocked || data.paywall?.show || (!data.output && !res.ok));
   if (!res.ok || blocked) return { ...data, blocked: true, error: data.error || data.message || 'Generation failed.' };
+  return data;
+}
+
+function getAuthStartEndpoint(account?: MeApiResponse): string {
+  return account?.auth?.startEndpoint || `${getBackendBaseUrl()}/api/auth/start`;
+}
+
+function buildAuthStartBody(email: string, returnTo: string, account?: MeApiResponse) {
+  if (account?.auth?.returnField === 'return_to') {
+    return { email, return_to: returnTo };
+  }
+  return { email, returnTo };
+}
+
+export async function startAuth(email: string, returnTo: string, account?: MeApiResponse): Promise<StartAuthResponse> {
+  const endpoint = getAuthStartEndpoint(account);
+  const body = buildAuthStartBody(email, returnTo, account);
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as StartAuthResponse;
+  if (!res.ok || data.status === 'error') {
+    throw new Error(data.message || data.error || 'Unable to send verification link right now. Please try again.');
+  }
   return data;
 }
