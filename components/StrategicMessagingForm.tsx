@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { APP_CONFIG, AUDIENCE_OPTIONS, FOLLOW_UP_ACTIONS, MODE_OPTIONS } from '@/lib/config';
 import type { StrategicMessagingOutput } from '@/lib/types';
 import { StrategicMessagingOutputView } from './StrategicMessagingOutput';
@@ -39,9 +39,11 @@ export function StrategicMessagingForm() {
   const showAuthNotice = account?.paywall?.variant === 'auth' || account?.auth?.required === true;
   const showMembershipCta = account?.paywall?.show && account.paywall.variant !== 'auth' && account.paywall.ctaLabel && account.paywall.ctaUrl;
 
-  async function requestVerificationLink() {
+  async function requestVerificationLink(event?: FormEvent) {
+    event?.preventDefault();
     if (!authEmail.trim()) {
       setAuthMessage('Please enter your email address.');
+      console.warn('Auth start validation error: missing email.');
       return;
     }
     setAuthLoading(true);
@@ -49,7 +51,14 @@ export function StrategicMessagingForm() {
     try {
       await startAuth(authEmail.trim(), window.location.origin, account);
       setAuthMessage('Check your email for a secure sign-in link.');
-    } catch {
+    } catch (e) {
+      if (e instanceof TypeError) {
+        console.warn('Auth start network failure.', e);
+      } else if (e instanceof Error && /unexpected|shape/i.test(e.message)) {
+        console.warn('Auth start unexpected response shape.', e);
+      } else {
+        console.warn('Auth start non-2xx backend response.', e);
+      }
       setAuthMessage('We could not send your verification link right now. Please try again in a moment.');
     } finally {
       setAuthLoading(false);
@@ -74,7 +83,7 @@ export function StrategicMessagingForm() {
     <div className="rounded border border-[#E5E3DC] bg-[#FAF9F6] p-3 text-sm text-[#495A58]">
       {showAuthNotice ? <p>Please sign in or verify your email to use AHEA tools. Verified users receive two complimentary generations total across AHEA tools.</p> : <p>{account?.message || 'Signed-in status is managed by the AHEA shared backend.'}</p>}
       {account?.usage && <p className="mt-1">Generations used: {String(account.usage.generationsUsed ?? '—')} • Free limit: {String(account.usage.freeGenerationsLimit ?? '—')} • Remaining free generations: {String(account.usage.remainingFreeGenerations ?? '—')} • Access status: {String(account.usage.accessStatus ?? '—')}.</p>}
-      {showAuthNotice && <div className="mt-3 space-y-2"><label className="block text-sm font-medium" htmlFor="auth-email">Email address</label><input id="auth-email" type="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} className="w-full rounded border border-[#E5E3DC] bg-[#FFFFFF] p-2" placeholder="name@example.org" /><button type="button" onClick={requestVerificationLink} disabled={authLoading} className="rounded border border-[#E5E3DC] bg-[#FFFFFF] px-3 py-1.5 text-sm disabled:opacity-50">{authLoading ? 'Sending...' : 'Send verification link'}</button>{authMessage && <p className="text-sm text-[#495A58]">{authMessage}</p>}</div>}
+      {showAuthNotice && <form className="mt-3 space-y-2" onSubmit={requestVerificationLink}><label className="block text-sm font-medium" htmlFor="auth-email">Email address</label><input id="auth-email" type="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} className="w-full rounded border border-[#E5E3DC] bg-[#FFFFFF] p-2" placeholder="name@example.org" required /><button type="submit" disabled={authLoading} className="rounded border border-[#E5E3DC] bg-[#FFFFFF] px-3 py-1.5 text-sm disabled:opacity-50">{authLoading ? 'Sending...' : 'Send verification link'}</button>{authMessage && <p className="text-sm text-[#495A58]">{authMessage}</p>}</form>}
       {showMembershipCta && <a className="mt-2 inline-block rounded border border-[#E5E3DC] bg-[#FFFFFF] px-3 py-1.5 text-sm" href={account?.paywall?.ctaUrl} target="_blank" rel="noreferrer">{account?.paywall?.ctaLabel}</a>}
     </div>
   )}

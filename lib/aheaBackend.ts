@@ -31,6 +31,7 @@ export interface MeApiResponse {
   auth?: {
     required?: boolean;
     startEndpoint?: string;
+    startPath?: string;
     verifyEndpoint?: string;
     callbackEndpoint?: string;
     returnField?: 'returnTo' | 'return_to';
@@ -107,19 +108,25 @@ export async function generateStrategicMessaging(input: {
 }
 
 function getAuthStartEndpoint(account?: MeApiResponse): string {
-  return account?.auth?.startEndpoint || `${getBackendBaseUrl()}/api/auth/start`;
-}
+  const backendBase = getBackendBaseUrl();
+  const configured = account?.auth?.startEndpoint || account?.auth?.startPath;
+  const fallback = new URL('/api/auth/start', backendBase).toString();
 
-function buildAuthStartBody(email: string, returnTo: string, account?: MeApiResponse) {
-  if (account?.auth?.returnField === 'return_to') {
-    return { email, return_to: returnTo };
+  if (!configured) return fallback;
+
+  const isAbsolute = /^https?:\/\//i.test(configured);
+  if (isAbsolute) {
+    const parsed = new URL(configured);
+    const backendOrigin = new URL(backendBase).origin;
+    return parsed.origin === backendOrigin ? parsed.toString() : fallback;
   }
-  return { email, returnTo };
+
+  return new URL(configured, backendBase).toString();
 }
 
 export async function startAuth(email: string, returnTo: string, account?: MeApiResponse): Promise<StartAuthResponse> {
   const endpoint = getAuthStartEndpoint(account);
-  const body = buildAuthStartBody(email, returnTo, account);
+  const body = { email, returnTo, return_to: returnTo };
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -133,5 +140,14 @@ export async function startAuth(email: string, returnTo: string, account?: MeApi
   if (!res.ok || data.status === 'error') {
     throw new Error(data.message || data.error || 'Unable to send verification link right now. Please try again.');
   }
+
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Unexpected response shape from auth start endpoint.');
+  }
+
+  if (data.status && data.status !== 'success') {
+    throw new Error('Unexpected response shape from auth start endpoint.');
+  }
+
   return data;
 }
