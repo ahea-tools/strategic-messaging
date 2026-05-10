@@ -28,6 +28,20 @@ export interface MeApiResponse {
     ctaUrl?: string;
     message?: string;
   };
+  auth?: {
+    required?: boolean;
+    startEndpoint?: string;
+    startPath?: string;
+    verifyEndpoint?: string;
+    callbackEndpoint?: string;
+    returnField?: 'returnTo' | 'return_to';
+  };
+  message?: string;
+  error?: string;
+}
+
+export interface StartAuthResponse {
+  status?: 'success' | 'error';
   message?: string;
   error?: string;
 }
@@ -90,5 +104,50 @@ export async function generateStrategicMessaging(input: {
   const data = (await res.json().catch(() => ({}))) as GenerateResponse;
   const blocked = Boolean(data.blocked || data.paywall?.show || (!data.output && !res.ok));
   if (!res.ok || blocked) return { ...data, blocked: true, error: data.error || data.message || 'Generation failed.' };
+  return data;
+}
+
+function getAuthStartEndpoint(account?: MeApiResponse): string {
+  const backendBase = getBackendBaseUrl();
+  const configured = account?.auth?.startEndpoint || account?.auth?.startPath;
+  const fallback = new URL('/api/auth/start', backendBase).toString();
+
+  if (!configured) return fallback;
+
+  const isAbsolute = /^https?:\/\//i.test(configured);
+  if (isAbsolute) {
+    const parsed = new URL(configured);
+    const backendOrigin = new URL(backendBase).origin;
+    return parsed.origin === backendOrigin ? parsed.toString() : fallback;
+  }
+
+  return new URL(configured, backendBase).toString();
+}
+
+export async function startAuth(email: string, returnTo: string, account?: MeApiResponse): Promise<StartAuthResponse> {
+  const endpoint = getAuthStartEndpoint(account);
+  const body = { email, returnTo, return_to: returnTo };
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as StartAuthResponse;
+  if (!res.ok || data.status === 'error') {
+    throw new Error(data.message || data.error || 'Unable to send verification link right now. Please try again.');
+  }
+
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Unexpected response shape from auth start endpoint.');
+  }
+
+  if (data.status && data.status !== 'success') {
+    throw new Error('Unexpected response shape from auth start endpoint.');
+  }
+
   return data;
 }
