@@ -51,13 +51,25 @@ export interface MeResponse extends MeApiResponse {
 }
 
 export interface GenerateResponse {
+  ok?: boolean;
   output?: StrategicMessagingOutput;
+  outputSource?: 'result' | 'output' | 'data' | 'raw' | 'none';
+  hasRequiredFields?: boolean;
   blocked?: boolean;
   message?: string;
   error?: string;
   usage?: MeApiResponse['usage'];
   paywall?: MeApiResponse['paywall'];
   [key: string]: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function looksLikeStrategicMessagingOutput(value: unknown): value is StrategicMessagingOutput {
+  if (!isRecord(value)) return false;
+  return typeof value.strategicRewrite === 'string' && typeof value.intentPreservationCheck === 'string';
 }
 
 function normalizeMe(data: MeApiResponse): MeResponse {
@@ -101,10 +113,52 @@ export async function generateStrategicMessaging(input: {
     body: JSON.stringify({ toolId: 'strategic-messaging', input }),
   });
 
-  const data = (await res.json().catch(() => ({}))) as GenerateResponse;
-  const blocked = Boolean(data.blocked || data.paywall?.show || (!data.output && !res.ok));
-  if (!res.ok || blocked) return { ...data, blocked: true, error: data.error || data.message || 'Generation failed.' };
-  return data;
+  const raw = (await res.json().catch(() => ({}))) as unknown;
+  const data = (isRecord(raw) ? raw : {}) as GenerateResponse;
+
+  const candidateFromResult = isRecord(raw) ? raw.result : undefined;
+  const candidateFromOutput = isRecord(raw) ? raw.output : undefined;
+  const candidateFromData = isRecord(raw) ? raw.data : undefined;
+
+  const resultOutput = looksLikeStrategicMessagingOutput(candidateFromResult) ? candidateFromResult : undefined;
+  const outputOutput = looksLikeStrategicMessagingOutput(candidateFromOutput) ? candidateFromOutput : undefined;
+  const dataOutput = looksLikeStrategicMessagingOutput(candidateFromData) ? candidateFromData : undefined;
+  const rawOutput = looksLikeStrategicMessagingOutput(raw) ? raw : undefined;
+
+  const output = resultOutput || outputOutput || dataOutput || rawOutput;
+  const outputSource: GenerateResponse['outputSource'] = resultOutput ? 'result' : outputOutput ? 'output' : dataOutput ? 'data' : rawOutput ? 'raw' : 'none';
+  const hasRequiredFields = Boolean(output && looksLikeStrategicMessagingOutput(output));
+  const blocked = Boolean(data.blocked || data.paywall?.show);
+
+  if (process.env.NODE_ENV === 'development') {
+    const wrapperKeys = isRecord(raw) ? Object.keys(raw).slice(0, 20) : [];
+    console.info('Strategic messaging generate response diagnostics', {
+      wrapperKeys,
+      outputFound: Boolean(output),
+      outputSource,
+      hasRequiredFields,
+      okStatus: res.ok,
+      hasUsage: Boolean(data.usage),
+      hasPaywall: Boolean(data.paywall),
+    });
+  }
+
+  if (!res.ok || blocked) return { ...data, ok: false, output, outputSource, hasRequiredFields, blocked: true, error: data.error || data.message || 'Generation failed.' };
+
+  if (!hasRequiredFields) {
+    return {
+      ...data,
+      ok: true,
+      blocked: false,
+      output: undefined,
+      outputSource,
+      hasRequiredFields: false,
+      error: 'Generation completed, but the response could not be displayed.',
+      raw,
+    };
+  }
+
+  return { ...data, ok: true, blocked: false, output, outputSource, hasRequiredFields, raw };
 }
 
 function getAuthStartEndpoint(account?: MeApiResponse): string {
