@@ -71,8 +71,21 @@ export function StrategicMessagingForm() {
     setError(''); setLoading(true);
     try {
       const data = await generateStrategicMessaging({ message, audience, mode, goalContext, followUpAction, currentOutput: output });
-      if (data.usage || data.paywall) setAccount((prev) => ({ ...(prev || { status: 'success' }), usage: data.usage || prev?.usage, paywall: data.paywall || prev?.paywall, blocked: Boolean(data.paywall?.show || data.blocked) }));
-      if (data.blocked || !data.output) throw new Error(data.error || data.message || 'Unable to generate a strategic rewrite right now.');
+      if (data.usage || data.paywall || data.blocked !== undefined) {
+        setAccount((prev) => ({
+          ...(prev || { status: 'success' }),
+          usage: data.usage || prev?.usage,
+          paywall: data.paywall || prev?.paywall,
+          blocked: Boolean(data.paywall?.show || data.blocked),
+        }));
+      }
+      if (data.blocked) {
+        setOutput(undefined);
+        throw new Error(data.error || data.message || 'Unable to generate a strategic rewrite right now.');
+      }
+      if (!data.output) {
+        throw new Error(data.error || 'Generation completed, but the response could not be displayed.');
+      }
       setOutput(data.output);
     } catch (e) { setError(e instanceof Error ? e.message : 'Unexpected error'); }
     finally { setLoading(false); }
