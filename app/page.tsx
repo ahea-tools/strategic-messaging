@@ -1,4 +1,5 @@
 import { StrategicMessagingForm } from '@/components/StrategicMessagingForm';
+import { ToolHubLink } from '@/components/ToolHubLink';
 
 export default function Page() {
   return (
@@ -10,6 +11,7 @@ export default function Page() {
           <p className="max-w-3xl text-[#495A58]">Adapt complex health messages for today’s communication environment while preserving the substance of the work.</p>
         </header>
         <StrategicMessagingForm />
+        <ToolHubLink />
         <footer className="text-xs text-[#495A58]">This tool provides communication support and does not provide legal, compliance, or policy advice.</footer>
       </div>
     </main>

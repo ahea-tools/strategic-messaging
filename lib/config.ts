@@ -1,3 +1,5 @@
+export const AHEA_TOOLS_HUB_URL = 'https://americanhealthequity.org/tools';
+
 export const APP_CONFIG = {
   maxMessageChars: 3000,
 } as const;
