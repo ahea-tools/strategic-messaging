@@ -41,7 +41,7 @@ export interface MeApiResponse {
 }
 
 export interface StartAuthResponse {
-  status?: 'success' | 'error';
+  status?: 'ok' | 'success' | 'error';
   message?: string;
   error?: string;
 }
@@ -178,9 +178,9 @@ function getAuthStartEndpoint(account?: MeApiResponse): string {
   return new URL(configured, backendBase).toString();
 }
 
-export async function startAuth(email: string, returnTo: string, account?: MeApiResponse): Promise<StartAuthResponse> {
+export async function startAuth(email: string, account?: MeApiResponse): Promise<StartAuthResponse> {
   const endpoint = getAuthStartEndpoint(account);
-  const body = { email, returnTo, return_to: returnTo };
+  const body = { email, toolId: 'strategic-messaging' };
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -199,7 +199,7 @@ export async function startAuth(email: string, returnTo: string, account?: MeApi
     throw new Error('Unexpected response shape from auth start endpoint.');
   }
 
-  if (data.status && data.status !== 'success') {
+  if (data.status && data.status !== 'success' && data.status !== 'ok') {
     throw new Error('Unexpected response shape from auth start endpoint.');
   }
 
