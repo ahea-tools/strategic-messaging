@@ -49,7 +49,7 @@ export function StrategicMessagingForm() {
     setAuthLoading(true);
     setAuthMessage('');
     try {
-      await startAuth(authEmail.trim(), window.location.origin, account);
+      await startAuth(authEmail.trim(), account);
       setAuthMessage('Check your email for a secure sign-in link.');
     } catch (e) {
       if (e instanceof TypeError) {
